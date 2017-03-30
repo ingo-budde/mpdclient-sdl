@@ -11,22 +11,32 @@
 //struct mpd_playlist *
 //mpd_recv_playlist(struct mpd_connection *connection);
 
-const int numCommands = 7;
+const int numCommands = 11;
 
 
+SDL_Color backgroundNight = { 0,0,50,255 };
+SDL_Color backgroundDay = {255,255,255,255};
 
 
 class Application {
 private:
+	enum MODE {
+		MODE_DEFAULT,
+		MODE_2,
+		MODE_3,
+		MODE_NIGHT
+	};
+	enum MODE mode;
+
 	int currentButton = -1;
 	SDL_Window * window ;
 	SDL_Renderer * renderer;
 	SDL_Texture* texture[numCommands];
 
 	const char* imgFiles[numCommands] = {
-		"prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp"};
+		"prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp","death.bmp"};
 	enum BUTTONS {
-		PREV = 0, PLAY, STOP, NEXT, VOL_DOWN, VOL_UP, DEATH
+		PREV = 0, PLAY, STOP, NEXT, VOL_DOWN, VOL_UP, PLAYLIST1, PLAYLIST2, PLAYLIST3, PLAYLIST4, DEATH
 	};
 	struct mpd_connection *conn;
 
@@ -45,14 +55,14 @@ public:
 
 
 		    for (int i = 0; i < numCommands; i++) {
-		    	SDL_Surface* surface = SDL_LoadBMP("play.bmp");//imgFiles[i]);
+		    	SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
 		    	SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
 		        texture[i] = SDL_CreateTextureFromSurface(renderer, surface);
 		        SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
 		        SDL_FreeSurface(surface);
 		    }
 
-		    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+		    SDL_SetRenderDrawColor(renderer, 0, 0, 50, 255);
 
 
 			conn = mpd_connection_new("bad", 0, 30000);
@@ -292,6 +302,16 @@ public:
 		int x = i * buttonWidthPlusMargin;
 		SDL_Rect rect = {x + margin/2, 40, buttonWidth, buttonHeight };
 		return rect;
+	}
+
+	void setMode(enum MODE mode) {
+		if (this->mode != mode) {
+			this->mode = mode;
+			modeChanged();
+		}
+	}
+	void modeChanged() {
+
 	}
 
 };
