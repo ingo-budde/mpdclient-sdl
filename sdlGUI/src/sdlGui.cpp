@@ -5,8 +5,13 @@
 #include <mpd/status.h>
 #include <mpd/entity.h>
 #include <mpd/search.h>
+#include <mpd/queue.h>
 #include <mpd/tag.h>
 #include <mpd/message.h>
+#include <chrono>
+#include <ctime>
+
+
 // Liste der Songs:
 //struct mpd_playlist *
 //mpd_recv_playlist(struct mpd_connection *connection);
@@ -20,15 +25,11 @@ SDL_Color backgroundDay = {255,255,255,255};
 
 class Application {
 private:
-	enum MODE {
-		MODE_DEFAULT,
-		MODE_2,
-		MODE_3,
-		MODE_NIGHT
-	};
-	enum MODE mode;
+	bool night;
+	int playlist;
+	int previousPlaylist;
 
-	int currentButton = -1;
+	int pressedButton = -1;
 	SDL_Window * window ;
 	SDL_Renderer * renderer;
 	SDL_Texture* texture[numCommands];
@@ -42,12 +43,17 @@ private:
 
 
 public:
+
 	// init
 	Application() {
+		srand(time(0));
 		conn = 0;
+		night = false;
+		playlist = -1;
+		previousPlaylist = -1;
 
 		    // init SDL
-		    SDL_Init(SDL_INIT_VIDEO);
+		    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 		    window = SDL_CreateWindow("MPD Client",
 		        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1184, 624, 0);
 
@@ -62,10 +68,17 @@ public:
 		        SDL_FreeSurface(surface);
 		    }
 
-		    SDL_SetRenderDrawColor(renderer, 0, 0, 50, 255);
-
 
 			conn = mpd_connection_new("bad", 0, 30000);
+
+			SDL_AddTimer(1000 * 60, Application::staticTimerCallback, this);
+			timerCallback(0);
+
+
+//			mpd_run_playlist_add(connection, name, path)
+//
+//			mpd_playlist_begin(pair)
+//			mpd_playlist_free(struct mpd_playlist *playlist);
 
 
 		//	struct mpd_status * status;
@@ -194,6 +207,23 @@ public:
 	    SDL_Quit();
 	}
 
+	void updateColor() {
+		SDL_Color c = night ? backgroundNight : backgroundDay;
+		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
+	}
+	static Uint32 staticTimerCallback (Uint32 interval, void *param) {
+		return reinterpret_cast<Application*>(param)->timerCallback(interval);
+	}
+
+	Uint32 timerCallback(Uint32 interval) {
+		typedef std::chrono::system_clock Clock;
+		auto now = Clock::now();
+		std::time_t now_c = Clock::to_time_t(now);
+		struct tm *parts = std::localtime(&now_c);
+		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+		return 1;
+	}
+
 	// main loop
 	int run() {
 		if (conn == 0) {
@@ -218,37 +248,42 @@ public:
 		            	quit = true;
 		            	break;
 		        	case SDL_MOUSEBUTTONDOWN:
-		        		currentButton = -1;
+		        		pressedButton = -1;
 		                for (int i = 0; i < numCommands; i++) {
 		        			SDL_Rect rect = getButtonBounds(i);
 		        			SDL_Point point = { event.button.x, event.button.y };
 		        			if (SDL_PointInRect(&point, &rect)) {
-		        				currentButton = i;
+		        				pressedButton = i;
 		        			}
 		                }
 		                break;
 					case SDL_MOUSEBUTTONUP:
-						if (currentButton > -1 && currentButton < numCommands) {
-							switch(currentButton) {
+						if (pressedButton > -1 && pressedButton < numCommands) {
+							switch (pressedButton) {
 							case PREV: mpd_run_previous(conn); break;
 							case PLAY: mpd_run_play(conn); break;
 							case STOP: mpd_run_stop(conn); break;
 							case NEXT: mpd_run_next(conn); break;
 							case VOL_DOWN: mpd_run_change_volume(conn, -5); break;
 							case VOL_UP: mpd_run_change_volume(conn, 5); break;
-							case DEATH:
+							case DEATH: {
 								mpd_status* status = mpd_run_status(conn);
 								int songid = mpd_status_get_song_pos(status);
 								mpd_run_delete(conn, songid);
 								mpd_status_free(status);
 								break;
 							}
+							case PLAYLIST1: setPlaylist(1); break;
+							case PLAYLIST2: setPlaylist(2); break;
+							case PLAYLIST3: setPlaylist(3); break;
+							case PLAYLIST4: setPlaylist(4); break;
+							}
 
 							if (int state = check_connection()) {
 								return state;
 							}
 						}
-						currentButton = -1;
+						pressedButton = -1;
 		    			break;
 		        }
 
@@ -257,7 +292,8 @@ public:
 
 		        for (int i = 0; i < numCommands; i++) {
 					SDL_Rect rect = getButtonBounds(i);
-					if (i == currentButton) {
+					int playlist = i - PLAYLIST1 + 1;
+					if (i == pressedButton || (playlist >=1 && playlist == this->playlist)) {
 						rect.x -= 10;
 						rect.y -= 10;
 						rect.w += 20;
@@ -304,14 +340,66 @@ public:
 		return rect;
 	}
 
-	void setMode(enum MODE mode) {
-		if (this->mode != mode) {
-			this->mode = mode;
-			modeChanged();
+	void setNight(bool night) {
+		if (this->night != night) {
+			this->night = night;
+			nightStatusChanged();
 		}
 	}
-	void modeChanged() {
 
+	void nightStatusChanged() {
+		updateColor();
+		if (this->night) {
+			setPlaylist(4);
+		} else {
+			if (playlist == 4) {
+				setPlaylist(previousPlaylist);
+			} else if (playlist == -1) {
+				setPlaylist(1);
+			}
+		}
+	}
+
+	void setPlaylist(int playlist) {
+		if (this->playlist != playlist) {
+			// before changing
+			if (-1 != this->playlist) {
+				std::string name = "playlist" + std::to_string(this->playlist);
+				mpd_run_rm(conn, name.c_str());
+				check_connection();
+				mpd_run_save(conn, name.c_str());
+				check_connection();
+			}
+			this->previousPlaylist = playlist;
+
+			mpd_run_clear(conn);
+			check_connection();
+
+			// change
+			this->playlist = playlist;
+			if (-1 != this->playlist) {
+				// load playlist
+				std::string name = "playlist" + std::to_string(this->playlist);
+				mpd_run_load(conn, name.c_str());
+				check_connection();
+
+				// play random song
+				unsigned pos = 0;
+				if (mpd_status* status = mpd_run_status(conn)) {
+					check_connection();
+					unsigned length = mpd_status_get_queue_length(status);
+					check_connection();
+					pos = rand() % length;
+					mpd_status_free(status);
+				}
+				check_connection();
+
+				mpd_run_play_pos(conn, pos);
+				check_connection();
+
+
+			}
+		}
 	}
 
 };
