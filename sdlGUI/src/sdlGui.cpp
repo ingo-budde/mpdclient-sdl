@@ -45,7 +45,7 @@ public:
 
 
 		    for (int i = 0; i < numCommands; i++) {
-		    	SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
+		    	SDL_Surface* surface = SDL_LoadBMP("play.bmp");//imgFiles[i]);
 		    	SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
 		        texture[i] = SDL_CreateTextureFromSurface(renderer, surface);
 		        SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
