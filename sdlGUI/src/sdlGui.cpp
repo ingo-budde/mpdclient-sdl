@@ -259,6 +259,10 @@ public:
 		                break;
 					case SDL_MOUSEBUTTONUP:
 						if (pressedButton > -1 && pressedButton < numCommands) {
+							if (int state = check_connection()) {
+								return state;
+							}
+
 							switch (pressedButton) {
 							case PREV: mpd_run_previous(conn); break;
 							case PLAY: mpd_run_play(conn); break;
@@ -308,10 +312,28 @@ public:
 	}
 
 	int check_connection() {
+		if (mpd_connection_get_error(conn) == MPD_ERROR_SUCCESS) {
+			mpd_run_clearerror(conn);
+		}
+
+
 		if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS) {
 			fprintf(stderr, "%s\n", mpd_connection_get_error_message(conn));
 			if (!mpd_connection_clear_error(conn)) {
-				return 1;
+				// try to establish a new connection to server
+				if (conn != 0) {
+					mpd_connection_free(conn);
+				}
+				fprintf(stderr, "trying to reconnect...\n");
+				conn = mpd_connection_new("bad", 0, 30000);
+				if (conn == 0) {
+					return -1;
+				}
+				if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS)
+				{
+					fprintf(stderr, "%s\n", mpd_connection_get_error_message(conn));
+					return -1;
+				}
 			}
 		}
 		return 0;
@@ -365,6 +387,7 @@ public:
 			// before changing
 			if (-1 != this->playlist) {
 				std::string name = "playlist" + std::to_string(this->playlist);
+				check_connection();
 				mpd_run_rm(conn, name.c_str());
 				check_connection();
 				mpd_run_save(conn, name.c_str());
@@ -380,6 +403,7 @@ public:
 			if (-1 != this->playlist) {
 				// load playlist
 				std::string name = "playlist" + std::to_string(this->playlist);
+				check_connection();
 				mpd_run_load(conn, name.c_str());
 				check_connection();
 
