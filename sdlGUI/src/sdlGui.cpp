@@ -313,14 +313,16 @@ public:
 
 	int check_connection() {
 		if (mpd_connection_get_error(conn) == MPD_ERROR_SUCCESS) {
+			// execute a command to provoke a "connection abort" error, which can only be detected
+			// by sending a command to the server and getting a non-success afterwards, from which
+			// it cannot be recovered.
 			mpd_run_clearerror(conn);
 		}
-
 
 		if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS) {
 			fprintf(stderr, "%s\n", mpd_connection_get_error_message(conn));
 			if (!mpd_connection_clear_error(conn)) {
-				// try to establish a new connection to server
+				// cannot recover. try to establish a new connection to server
 				if (conn != 0) {
 					mpd_connection_free(conn);
 				}
