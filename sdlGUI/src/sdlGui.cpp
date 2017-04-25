@@ -258,10 +258,6 @@ public:
 		return pt;
 	}
 
-	void updateColor() {
-		SDL_Color c = night ? backgroundNight : backgroundDay;
-		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
-	}
 	static Uint32 staticTimerCallback (Uint32 interval, void *param) {
 		return reinterpret_cast<Application*>(param)->timerCallback(interval);
 	}
@@ -372,6 +368,8 @@ public:
 		    			break;
 		        }
 
+		    	SDL_Color c = night ? backgroundNight : backgroundDay;
+				SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
 
 		        SDL_RenderClear(renderer);
 
@@ -451,7 +449,6 @@ public:
 	}
 
 	void nightStatusChanged() {
-		updateColor();
 		if (this->night) {
 			setPlaylist(4);
 		} else {
