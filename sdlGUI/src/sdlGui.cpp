@@ -1,15 +1,146 @@
+#include <mpd/connection.h>
+#include <mpd/error.h>
+#include <mpd/mixer.h>
+#include <mpd/player.h>
+#include <mpd/playlist.h>
+#include <mpd/queue.h>
+#include <mpd/status.h>
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
+#include <chrono>
+#include <cstdio>
+#include <cstdlib>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 #include <string>
 
-#include <mpd/client.h>
-#include <mpd/status.h>
-#include <mpd/entity.h>
-#include <mpd/search.h>
-#include <mpd/queue.h>
-#include <mpd/tag.h>
-#include <mpd/message.h>
-#include <chrono>
-#include <ctime>
+
+//	void test() {
+//		mpd_run_playlist_add(connection, name, path)
+//
+//		mpd_playlist_begin(pair)
+//		mpd_playlist_free(struct mpd_playlist *playlist);
+//
+//
+//		struct mpd_status * status;
+//			struct mpd_song *song;
+//			const struct mpd_audio_format *audio_format;
+//
+//			mpd_command_list_begin(conn, true);
+//			mpd_send_status(conn);
+//			mpd_send_current_song(conn);
+//			mpd_command_list_end(conn);
+//
+//			status = mpd_recv_status(conn);
+//			if (status == NULL)
+//				return handle_error(conn);
+//
+//			printf("volume: %i\n", mpd_status_get_volume(status));
+//			printf("repeat: %i\n", mpd_status_get_repeat(status));
+//			printf("queue version: %u\n", mpd_status_get_queue_version(status));
+//			printf("queue length: %i\n", mpd_status_get_queue_length(status));
+//			if (mpd_status_get_error(status) != NULL)
+//				printf("error: %s\n", mpd_status_get_error(status));
+//
+//			if (mpd_status_get_state(status) == MPD_STATE_PLAY ||
+//			    mpd_status_get_state(status) == MPD_STATE_PAUSE) {
+//				printf("song: %i\n", mpd_status_get_song_pos(status));
+//				printf("elaspedTime: %i\n",mpd_status_get_elapsed_time(status));
+//				printf("elasped_ms: %u\n", mpd_status_get_elapsed_ms(status));
+//				printf("totalTime: %i\n", mpd_status_get_total_time(status));
+//				printf("bitRate: %i\n", mpd_status_get_kbit_rate(status));
+//			}
+//
+//			audio_format = mpd_status_get_audio_format(status);
+//			if (audio_format != NULL) {
+//				printf("sampleRate: %i\n", audio_format->sample_rate);
+//				printf("bits: %i\n", audio_format->bits);
+//				printf("channels: %i\n", audio_format->channels);
+//			}
+//
+//			mpd_status_free(status);
+//
+//			if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS)
+//				return handle_error(conn);
+//
+//			mpd_response_next(conn);
+//
+//			while ((song = mpd_recv_song(conn)) != NULL) {
+//				printf("uri: %s\n", mpd_song_get_uri(song));
+//				print_tag(song, MPD_TAG_ARTIST, "artist");
+//				print_tag(song, MPD_TAG_ALBUM, "album");
+//				print_tag(song, MPD_TAG_TITLE, "title");
+//				print_tag(song, MPD_TAG_TRACK, "track");
+//				print_tag(song, MPD_TAG_NAME, "name");
+//				print_tag(song, MPD_TAG_DATE, "date");
+//
+//				if (mpd_song_get_duration(song) > 0) {
+//					printf("time: %u\n", mpd_song_get_duration(song));
+//				}
+//
+//				printf("pos: %u\n", mpd_song_get_pos(song));
+//
+//				mpd_song_free(song);
+//			}
+//
+//			if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS ||
+//			    !mpd_response_finish(conn))
+//				return handle_error(conn);
+//
+//		struct mpd_entity * entity;
+//
+//				if (!mpd_send_list_meta(conn, argv[2]))
+//					return handle_error(conn);
+//
+//				while ((entity = mpd_recv_entity(conn)) != NULL) {
+//					const struct mpd_song *song;
+//					const struct mpd_directory *dir;
+//					const struct mpd_playlist *pl;
+//
+//					switch (mpd_entity_get_type(entity)) {
+//					case MPD_ENTITY_TYPE_UNKNOWN:
+//						break;
+//
+//					case MPD_ENTITY_TYPE_SONG:
+//						song = mpd_entity_get_song(entity);
+//						printf("uri: %s\n", mpd_song_get_uri(song));
+//						print_tag(song, MPD_TAG_ARTIST, "artist");
+//						print_tag(song, MPD_TAG_ALBUM, "album");
+//						print_tag(song, MPD_TAG_TITLE, "title");
+//						print_tag(song, MPD_TAG_TRACK, "track");
+//						break;
+//
+//					case MPD_ENTITY_TYPE_DIRECTORY:
+//						dir = mpd_entity_get_directory(entity);
+//						printf("directory: %s\n", mpd_directory_get_path(dir));
+//						break;
+//
+//					case MPD_ENTITY_TYPE_PLAYLIST:
+//						pl = mpd_entity_get_playlist(entity);
+//						printf("playlist: %s\n",
+//						       mpd_playlist_get_path(pl));
+//						break;
+//					}
+//
+//					mpd_entity_free(entity);
+//				}
+//
+//				if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS ||
+//				    !mpd_response_finish(conn))
+//					return handle_error(conn);
+//	}
+//
+//	static void
+//	print_tag(const struct mpd_song *song, enum mpd_tag_type type,
+//		  const char *label)
+//	{
+//		unsigned i = 0;
+//		const char *value;
+//
+//		while ((value = mpd_song_get_tag(song, type, i++)) != NULL)
+//			printf("%s: %s\n", label, value);
+//	}
 
 
 // Liste der Songs:
@@ -41,6 +172,8 @@ private:
 	};
 	struct mpd_connection *conn;
 
+	TTF_Font* font260;
+	TTF_Font* font30;
 
 public:
 
@@ -52,141 +185,30 @@ public:
 		playlist = -1;
 		previousPlaylist = -1;
 
-		    // init SDL
-		    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
-		    window = SDL_CreateWindow("MPD Client",
-		        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1184, 624, 0);
+		// init SDL
+		SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
+		window = SDL_CreateWindow("MPD Client",
+			SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, 1184, 624, 0);
 
-		    renderer = SDL_CreateRenderer(window, -1, 0);
-
-
-		    for (int i = 0; i < numCommands; i++) {
-		    	SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
-		    	SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
-		        texture[i] = SDL_CreateTextureFromSurface(renderer, surface);
-		        SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
-		        SDL_FreeSurface(surface);
-		    }
+		renderer = SDL_CreateRenderer(window, -1, 0);
 
 
-			conn = mpd_connection_new("bad", 0, 30000);
+		for (int i = 0; i < numCommands; i++) {
+			SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
+			SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
+			texture[i] = SDL_CreateTextureFromSurface(renderer, surface);
+			SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
+			SDL_FreeSurface(surface);
+		}
+		TTF_Init();
 
-			SDL_AddTimer(1000 * 60, Application::staticTimerCallback, this);
-			timerCallback(0);
+		font260 = TTF_OpenFont("Vera.ttf", 260);
+		font30 = TTF_OpenFont("Vera.ttf", 30);
 
+		conn = mpd_connection_new("bad", 0, 30000);
 
-//			mpd_run_playlist_add(connection, name, path)
-//
-//			mpd_playlist_begin(pair)
-//			mpd_playlist_free(struct mpd_playlist *playlist);
-
-
-		//	struct mpd_status * status;
-		//		struct mpd_song *song;
-		//		const struct mpd_audio_format *audio_format;
-		//
-		//		mpd_command_list_begin(conn, true);
-		//		mpd_send_status(conn);
-		//		mpd_send_current_song(conn);
-		//		mpd_command_list_end(conn);
-		//
-		//		status = mpd_recv_status(conn);
-		//		if (status == NULL)
-		//			return handle_error(conn);
-		//
-		//		printf("volume: %i\n", mpd_status_get_volume(status));
-		//		printf("repeat: %i\n", mpd_status_get_repeat(status));
-		//		printf("queue version: %u\n", mpd_status_get_queue_version(status));
-		//		printf("queue length: %i\n", mpd_status_get_queue_length(status));
-		//		if (mpd_status_get_error(status) != NULL)
-		//			printf("error: %s\n", mpd_status_get_error(status));
-		//
-		//		if (mpd_status_get_state(status) == MPD_STATE_PLAY ||
-		//		    mpd_status_get_state(status) == MPD_STATE_PAUSE) {
-		//			printf("song: %i\n", mpd_status_get_song_pos(status));
-		//			printf("elaspedTime: %i\n",mpd_status_get_elapsed_time(status));
-		//			printf("elasped_ms: %u\n", mpd_status_get_elapsed_ms(status));
-		//			printf("totalTime: %i\n", mpd_status_get_total_time(status));
-		//			printf("bitRate: %i\n", mpd_status_get_kbit_rate(status));
-		//		}
-		//
-		//		audio_format = mpd_status_get_audio_format(status);
-		//		if (audio_format != NULL) {
-		//			printf("sampleRate: %i\n", audio_format->sample_rate);
-		//			printf("bits: %i\n", audio_format->bits);
-		//			printf("channels: %i\n", audio_format->channels);
-		//		}
-		//
-		//		mpd_status_free(status);
-		//
-		//		if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS)
-		//			return handle_error(conn);
-		//
-		//		mpd_response_next(conn);
-		//
-		//		while ((song = mpd_recv_song(conn)) != NULL) {
-		//			printf("uri: %s\n", mpd_song_get_uri(song));
-		//			print_tag(song, MPD_TAG_ARTIST, "artist");
-		//			print_tag(song, MPD_TAG_ALBUM, "album");
-		//			print_tag(song, MPD_TAG_TITLE, "title");
-		//			print_tag(song, MPD_TAG_TRACK, "track");
-		//			print_tag(song, MPD_TAG_NAME, "name");
-		//			print_tag(song, MPD_TAG_DATE, "date");
-		//
-		//			if (mpd_song_get_duration(song) > 0) {
-		//				printf("time: %u\n", mpd_song_get_duration(song));
-		//			}
-		//
-		//			printf("pos: %u\n", mpd_song_get_pos(song));
-		//
-		//			mpd_song_free(song);
-		//		}
-		//
-		//		if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS ||
-		//		    !mpd_response_finish(conn))
-		//			return handle_error(conn);
-		//
-		//	struct mpd_entity * entity;
-		//
-		//			if (!mpd_send_list_meta(conn, argv[2]))
-		//				return handle_error(conn);
-		//
-		//			while ((entity = mpd_recv_entity(conn)) != NULL) {
-		//				const struct mpd_song *song;
-		//				const struct mpd_directory *dir;
-		//				const struct mpd_playlist *pl;
-		//
-		//				switch (mpd_entity_get_type(entity)) {
-		//				case MPD_ENTITY_TYPE_UNKNOWN:
-		//					break;
-		//
-		//				case MPD_ENTITY_TYPE_SONG:
-		//					song = mpd_entity_get_song(entity);
-		//					printf("uri: %s\n", mpd_song_get_uri(song));
-		//					print_tag(song, MPD_TAG_ARTIST, "artist");
-		//					print_tag(song, MPD_TAG_ALBUM, "album");
-		//					print_tag(song, MPD_TAG_TITLE, "title");
-		//					print_tag(song, MPD_TAG_TRACK, "track");
-		//					break;
-		//
-		//				case MPD_ENTITY_TYPE_DIRECTORY:
-		//					dir = mpd_entity_get_directory(entity);
-		//					printf("directory: %s\n", mpd_directory_get_path(dir));
-		//					break;
-		//
-		//				case MPD_ENTITY_TYPE_PLAYLIST:
-		//					pl = mpd_entity_get_playlist(entity);
-		//					printf("playlist: %s\n",
-		//					       mpd_playlist_get_path(pl));
-		//					break;
-		//				}
-		//
-		//				mpd_entity_free(entity);
-		//			}
-		//
-		//			if (mpd_connection_get_error(conn) != MPD_ERROR_SUCCESS ||
-		//			    !mpd_response_finish(conn))
-		//				return handle_error(conn);
+		SDL_AddTimer(1000 * 60, Application::staticTimerCallback, this);
+		timerCallback(0);
 
 	}
 
@@ -196,7 +218,6 @@ public:
 			mpd_connection_free(conn);
 		}
 
-
 	    // cleanup SDL
 	    for (int i=0; i <  numCommands; i++) {
 	    	SDL_DestroyTexture(texture[i]);
@@ -204,7 +225,37 @@ public:
 
 	    SDL_DestroyRenderer(renderer);
 	    SDL_DestroyWindow(window);
+	    TTF_Quit();
 	    SDL_Quit();
+	}
+
+	void renderText(TTF_Font* font, SDL_Renderer* renderer, std::string text, SDL_Color color, SDL_Point position, bool center) {
+		SDL_Surface* textSurface = TTF_RenderText_Solid(font, text.c_str(), color);
+		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+		int textWidth = textSurface->w;
+		int textHeight = textSurface->h;
+		SDL_FreeSurface(textSurface);
+
+		SDL_Rect rect = {
+			position.x,
+			position.y,
+			textWidth,
+			textHeight
+		};
+
+		if (center) {
+			rect.x -= textWidth / 2;
+			rect.y -= textHeight / 2;
+		}
+
+		SDL_RenderCopy(renderer, texture, nullptr, &rect);
+		SDL_DestroyTexture(texture);
+	}
+
+	SDL_Point getTextSize(TTF_Font* font, std::string text) {
+		SDL_Point pt;
+		TTF_SizeText(font, text.c_str(), &pt.x, &pt.y);
+		return pt;
 	}
 
 	void updateColor() {
@@ -222,6 +273,36 @@ public:
 		struct tm *parts = std::localtime(&now_c);
 		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
 		return 1;
+	}
+
+	std::string getTime() {
+		std::time_t result = std::time(nullptr);
+		std::tm* local = localtime(&result);
+		std::stringstream stream;
+		stream << std::setw(2) << std::setfill('0');
+		stream << local->tm_hour;
+		stream << ":";
+		stream << std::setw(2) << std::setfill('0');
+		stream << local->tm_min;
+		return stream.str();
+	}
+
+
+	std::string getDate() {
+		std::time_t result = std::time(nullptr);
+		std::tm* local = localtime(&result);
+
+		std::string weekdays[] = { "Sonntech", "Montech", "Dienstech", "Mittwech", "Donnerstech", "Freitech", "Samstech" };
+
+		std::stringstream stream;
+		stream << weekdays[local->tm_wday];
+		stream << ", ";
+		stream << std::setw(2) << std::setfill('0') << local->tm_mday;
+		stream << ".";
+		stream << std::setw(2) << std::setfill('0') << local->tm_mon;
+		stream << ".";
+		stream << std::setw(4) << std::setfill('0') << (local->tm_year + 1900);
+		return stream.str();
 	}
 
 	// main loop
@@ -294,6 +375,7 @@ public:
 
 		        SDL_RenderClear(renderer);
 
+		        // render all buttons
 		        for (int i = 0; i < numCommands; i++) {
 					SDL_Rect rect = getButtonBounds(i);
 					int playlist = i - PLAYLIST1 + 1;
@@ -305,6 +387,14 @@ public:
 					}
 					SDL_RenderCopy(renderer, texture[i], 0, &rect);
 		        }
+
+		        // render text
+				SDL_Point windowSize;
+				SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
+
+				SDL_Color textColor = night ? backgroundDay : backgroundNight;
+				renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2}, true);
+				renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 150}, true);
 
 		        SDL_RenderPresent(renderer);
 		    }
@@ -339,17 +429,6 @@ public:
 			}
 		}
 		return 0;
-	}
-
-	static void
-	print_tag(const struct mpd_song *song, enum mpd_tag_type type,
-		  const char *label)
-	{
-		unsigned i = 0;
-		const char *value;
-
-		while ((value = mpd_song_get_tag(song, type, i++)) != NULL)
-			printf("%s: %s\n", label, value);
 	}
 
 	SDL_Rect getButtonBounds(int i) {
