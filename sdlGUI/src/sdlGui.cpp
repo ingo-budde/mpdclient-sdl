@@ -160,6 +160,7 @@ private:
 	int playlist;
 	int previousPlaylist;
 
+	SDL_Event userEvent;
 	int pressedButton = -1;
 	SDL_Window * window ;
 	SDL_Renderer * renderer;
@@ -179,6 +180,8 @@ public:
 
 	// init
 	Application() {
+
+		userEvent.type = SDL_USEREVENT;
 		srand(time(0));
 		conn = 0;
 		night = false;
@@ -268,6 +271,9 @@ public:
 		std::time_t now_c = Clock::to_time_t(now);
 		struct tm *parts = std::localtime(&now_c);
 		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+
+		SDL_PushEvent(&userEvent);
+
 		return 1;
 	}
 
