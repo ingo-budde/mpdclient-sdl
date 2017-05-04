@@ -272,7 +272,7 @@ public:
 		struct tm *parts = std::localtime(&now_c);
 		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
 
-		SDL_PushEvent(&userEvent);
+		render();
 
 		return 1;
 	}
@@ -373,36 +373,40 @@ public:
 						pressedButton = -1;
 		    			break;
 		        }
-
-		    	SDL_Color c = night ? backgroundNight : backgroundDay;
-				SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
-
-		        SDL_RenderClear(renderer);
-
-		        // render all buttons
-		        for (int i = 0; i < numCommands; i++) {
-					SDL_Rect rect = getButtonBounds(i);
-					int playlist = i - PLAYLIST1 + 1;
-					if (i == pressedButton || (playlist >=1 && playlist == this->playlist)) {
-						rect.x -= 10;
-						rect.y -= 10;
-						rect.w += 20;
-						rect.h += 20;
-					}
-					SDL_RenderCopy(renderer, texture[i], 0, &rect);
-		        }
-
-		        // render text
-				SDL_Point windowSize;
-				SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
-
-				SDL_Color textColor = night ? backgroundDay : backgroundNight;
-				renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2}, true);
-				renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 150}, true);
-
-		        SDL_RenderPresent(renderer);
+		        render();
 		    }
 		 return 0;
+	}
+
+	void render() {
+
+    	SDL_Color c = night ? backgroundNight : backgroundDay;
+		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
+
+        SDL_RenderClear(renderer);
+
+        // render all buttons
+        for (int i = 0; i < numCommands; i++) {
+			SDL_Rect rect = getButtonBounds(i);
+			int playlist = i - PLAYLIST1 + 1;
+			if (i == pressedButton || (playlist >=1 && playlist == this->playlist)) {
+				rect.x -= 10;
+				rect.y -= 10;
+				rect.w += 20;
+				rect.h += 20;
+			}
+			SDL_RenderCopy(renderer, texture[i], 0, &rect);
+        }
+
+        // render text
+		SDL_Point windowSize;
+		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
+
+		SDL_Color textColor = night ? backgroundDay : backgroundNight;
+		renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2}, true);
+		renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 150}, true);
+
+        SDL_RenderPresent(renderer);
 	}
 
 	int check_connection() {
