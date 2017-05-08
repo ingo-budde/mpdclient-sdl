@@ -353,10 +353,10 @@ public:
 		    			break;
 		        }
 		    } else {
-		        update();
-		        render();
 		    	SDL_Delay(100);
 		    }
+	        update();
+	        render();
 		 }
 		 return 0;
 	}
