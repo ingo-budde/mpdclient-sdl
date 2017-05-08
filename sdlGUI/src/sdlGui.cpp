@@ -210,9 +210,6 @@ public:
 
 		conn = mpd_connection_new("bad", 0, 30000);
 
-		SDL_AddTimer(1000 * 60, Application::staticTimerCallback, this);
-		timerCallback(0);
-
 	}
 
 	// shutdown
@@ -261,22 +258,6 @@ public:
 		return pt;
 	}
 
-	static Uint32 staticTimerCallback (Uint32 interval, void *param) {
-		return reinterpret_cast<Application*>(param)->timerCallback(interval);
-	}
-
-	Uint32 timerCallback(Uint32 interval) {
-		typedef std::chrono::system_clock Clock;
-		auto now = Clock::now();
-		std::time_t now_c = Clock::to_time_t(now);
-		struct tm *parts = std::localtime(&now_c);
-		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
-
-		render();
-
-		return 1;
-	}
-
 	std::string getTime() {
 		std::time_t result = std::time(nullptr);
 		std::tm* local = localtime(&result);
@@ -321,10 +302,8 @@ public:
 	    SDL_Event event;
 
 		bool quit = false;
-		 while (!quit)
-		    {
-		        SDL_WaitEvent(&event);
-
+		 while (!quit) {
+			if (SDL_PollEvent(&event)) {
 		        switch (event.type)
 		        {
 		        	case SDL_QUIT:
@@ -373,9 +352,21 @@ public:
 						pressedButton = -1;
 		    			break;
 		        }
+		        update();
 		        render();
+		    } else {
+		    	SDL_Delay(10);
 		    }
+		 }
 		 return 0;
+	}
+	void update() {
+		typedef std::chrono::system_clock Clock;
+		auto now = Clock::now();
+		std::time_t now_c = Clock::to_time_t(now);
+		struct tm *parts = std::localtime(&now_c);
+		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+
 	}
 
 	void render() {
