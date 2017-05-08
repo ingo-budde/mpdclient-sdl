@@ -352,10 +352,10 @@ public:
 						pressedButton = -1;
 		    			break;
 		        }
+		    } else {
 		        update();
 		        render();
-		    } else {
-		    	SDL_Delay(10);
+		    	SDL_Delay(100);
 		    }
 		 }
 		 return 0;
