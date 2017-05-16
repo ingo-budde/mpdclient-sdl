@@ -449,15 +449,15 @@ public:
 	}
 
 	void nightStatusChanged() {
-		if (this->night) {
-			setPlaylist(4);
-		} else {
-			if (playlist == 4) {
-				setPlaylist(previousPlaylist);
-			} else if (playlist == -1) {
-				setPlaylist(1);
-			}
-		}
+//		if (this->night) {
+//			setPlaylist(4);
+//		} else {
+//			if (playlist == 4) {
+//				setPlaylist(previousPlaylist);
+//			} else if (playlist == -1) {
+//				setPlaylist(1);
+//			}
+//		}
 	}
 
 	void savePlaylist(int playlist) {
@@ -504,6 +504,7 @@ public:
 		if (this->playlist != playlist) {
 			this->playlist = playlist;
 			loadPlaylist(this->playlist);
+			playRandomSong();
 		}
 	}
 
