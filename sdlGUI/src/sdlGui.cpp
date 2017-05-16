@@ -158,7 +158,6 @@ class Application {
 private:
 	bool night;
 	int playlist;
-	int previousPlaylist;
 
 	SDL_Event userEvent;
 	int pressedButton = -1;
@@ -186,7 +185,6 @@ public:
 		conn = 0;
 		night = false;
 		playlist = -1;
-		previousPlaylist = -1;
 
 		// init SDL
 		SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -337,6 +335,7 @@ public:
 								int songid = mpd_status_get_song_pos(status);
 								mpd_run_delete(conn, songid);
 								mpd_status_free(status);
+								savePlaylist(this->playlist);
 								break;
 							}
 							case PLAYLIST1: setPlaylist(1); break;
@@ -461,47 +460,50 @@ public:
 		}
 	}
 
+	void savePlaylist(int playlist) {
+		// before changing
+		if (-1 != this->playlist) {
+			std::string name = "playlist" + std::to_string(playlist);
+			check_connection();
+			mpd_run_rm(conn, name.c_str());
+			check_connection();
+			mpd_run_save(conn, name.c_str());
+			check_connection();
+		}
+	}
+	void loadPlaylist(int playlist) {
+		// clear current playing buffer (remove all songs)
+		mpd_run_clear(conn);
+		check_connection();
+
+		// add playlist to buffer
+		if (-1 != playlist) {
+			std::string name = "playlist" + std::to_string(playlist);
+			check_connection();
+			mpd_run_load(conn, name.c_str());
+			check_connection();
+		}
+	}
+	void playRandomSong() {
+		// play random song
+		unsigned pos = 0;
+		if (mpd_status* status = mpd_run_status(conn)) {
+			check_connection();
+			unsigned length = mpd_status_get_queue_length(status);
+			check_connection();
+			pos = rand() % length;
+			mpd_status_free(status);
+		}
+		check_connection();
+
+		mpd_run_play_pos(conn, pos);
+		check_connection();
+	}
+
 	void setPlaylist(int playlist) {
 		if (this->playlist != playlist) {
-			// before changing
-			if (-1 != this->playlist) {
-				std::string name = "playlist" + std::to_string(this->playlist);
-				check_connection();
-				mpd_run_rm(conn, name.c_str());
-				check_connection();
-				mpd_run_save(conn, name.c_str());
-				check_connection();
-			}
-			this->previousPlaylist = playlist;
-
-			mpd_run_clear(conn);
-			check_connection();
-
-			// change
 			this->playlist = playlist;
-			if (-1 != this->playlist) {
-				// load playlist
-				std::string name = "playlist" + std::to_string(this->playlist);
-				check_connection();
-				mpd_run_load(conn, name.c_str());
-				check_connection();
-
-				// play random song
-				unsigned pos = 0;
-				if (mpd_status* status = mpd_run_status(conn)) {
-					check_connection();
-					unsigned length = mpd_status_get_queue_length(status);
-					check_connection();
-					pos = rand() % length;
-					mpd_status_free(status);
-				}
-				check_connection();
-
-				mpd_run_play_pos(conn, pos);
-				check_connection();
-
-
-			}
+			loadPlaylist(this->playlist);
 		}
 	}
 
