@@ -208,6 +208,8 @@ public:
 
 		conn = mpd_connection_new("bad", 0, 30000);
 
+		setPlaylist(4);
+
 	}
 
 	// shutdown
