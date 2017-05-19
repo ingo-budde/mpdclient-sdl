@@ -210,6 +210,8 @@ public:
 
 		setPlaylist(4);
 
+		SDL_DisableScreenSaver();
+
 	}
 
 	// shutdown
