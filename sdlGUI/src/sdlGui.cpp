@@ -383,7 +383,7 @@ public:
 		float minutes = seconds / 60.0f;
 		float hours = minutes / 60.0f;
 		float days = hours / 24.0f;
-		return seconds > 2; //days > 30;
+		return days > 30;
 	}
 
 	void update() {
