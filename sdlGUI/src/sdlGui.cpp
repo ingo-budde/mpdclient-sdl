@@ -383,7 +383,7 @@ public:
 		float minutes = seconds / 60.0f;
 		float hours = minutes / 60.0f;
 		float days = hours / 24.0f;
-		return days > 30;
+		return seconds > 2; //days > 30;
 	}
 
 	void update() {
@@ -537,7 +537,7 @@ public:
 		}
 	}
 	void setShuffleMode(bool shuffle) {
-		mpd_run_play_pos(conn, shuffle);
+		mpd_run_random(conn, shuffle);
 		check_connection();
 	}
 	void playRandomSong() {
