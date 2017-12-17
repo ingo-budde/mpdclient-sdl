@@ -14,6 +14,7 @@
 #include <iomanip>
 #include <sstream>
 #include <string>
+#include <iostream>
 
 
 //	void test() {
@@ -147,7 +148,7 @@
 //struct mpd_playlist *
 //mpd_recv_playlist(struct mpd_connection *connection);
 
-const int numCommands = 11;
+const int numCommands = 12;
 
 
 SDL_Color backgroundNight = { 0,0,50,255 };
@@ -166,11 +167,18 @@ private:
 	SDL_Texture* texture[numCommands];
 
 	const char* imgFiles[numCommands] = {
-		"prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp","death.bmp"};
+			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp"};
+
 	enum BUTTONS {
-		PREV = 0, PLAY, STOP, NEXT, VOL_DOWN, VOL_UP, PLAYLIST1, PLAYLIST2, PLAYLIST3, PLAYLIST4, DEATH
+		PLAYLIST1=0, PLAYLIST2, PLAYLIST3, PLAYLIST4, PREV, PLAY, STOP, NEXT, VOL_DOWN, VOL_UP, DEATH, LAST_BUTTON_IN_TOOLBAR
+	};
+	enum SEPARATE_BUTTONS {
+		CLEANING = LAST_BUTTON_IN_TOOLBAR,
 	};
 	struct mpd_connection *conn;
+
+	std::chrono::time_point<std::chrono::system_clock> lastCleanTime;
+
 
 	TTF_Font* font260;
 	TTF_Font* font30;
@@ -193,7 +201,6 @@ public:
 
 		renderer = SDL_CreateRenderer(window, -1, 0);
 
-
 		for (int i = 0; i < numCommands; i++) {
 			SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
 			SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
@@ -201,6 +208,8 @@ public:
 			SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
 			SDL_FreeSurface(surface);
 		}
+
+
 		TTF_Init();
 
 		font260 = TTF_OpenFont("Vera.ttf", 260);
@@ -211,6 +220,8 @@ public:
 		setPlaylist(4);
 
 		SDL_DisableScreenSaver();
+
+		//lastCleanTime = std::chrono::system_clock::now();
 
 	}
 
@@ -328,6 +339,7 @@ public:
 							}
 
 							switch (pressedButton) {
+							case CLEANING: if (isCleaningIconVisible()) { lastCleanTime = std::chrono::system_clock::now(); } break;
 							case PREV: mpd_run_previous(conn); break;
 							case PLAY: mpd_run_play(conn); break;
 							case STOP: mpd_run_stop(conn); break;
@@ -342,10 +354,10 @@ public:
 								savePlaylist(this->playlist);
 								break;
 							}
-							case PLAYLIST1: setPlaylist(1); break;
-							case PLAYLIST2: setPlaylist(2); break;
-							case PLAYLIST3: setPlaylist(3); break;
-							case PLAYLIST4: setPlaylist(4); break;
+							case PLAYLIST1: setPlaylist(1); setShuffleMode(false); break;
+							case PLAYLIST2: setPlaylist(2); setShuffleMode(true); break;
+							case PLAYLIST3: setPlaylist(3); setShuffleMode(true); break;
+							case PLAYLIST4: setPlaylist(4); setShuffleMode(true); break;
 							}
 
 							if (int state = check_connection()) {
@@ -363,6 +375,17 @@ public:
 		 }
 		 return 0;
 	}
+
+	bool isCleaningIconVisible() {
+		auto now = std::chrono::system_clock::now();
+		auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCleanTime);
+		float seconds = milliseconds.count() / 1000.0f;
+		float minutes = seconds / 60.0f;
+		float hours = minutes / 60.0f;
+		float days = hours / 24.0f;
+		return days > 30;
+	}
+
 	void update() {
 		typedef std::chrono::system_clock Clock;
 		auto now = Clock::now();
@@ -373,14 +396,24 @@ public:
 	}
 
 	void render() {
-
     	SDL_Color c = night ? backgroundNight : backgroundDay;
+    	if (isCleaningIconVisible()) {
+    		if (night) {
+    			c = { 40, 40, 0 };
+    		} else {
+    			c = { 255, 255, 225 };
+    		}
+    	}
 		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
 
         SDL_RenderClear(renderer);
 
         // render all buttons
         for (int i = 0; i < numCommands; i++) {
+        	if (i == CLEANING && !isCleaningIconVisible()) {
+        		continue;
+        	}
+
 			SDL_Rect rect = getButtonBounds(i);
 			int playlist = i - PLAYLIST1 + 1;
 			if (i == pressedButton || (playlist >=1 && playlist == this->playlist)) {
@@ -390,6 +423,8 @@ public:
 				rect.h += 20;
 			}
 			SDL_RenderCopy(renderer, texture[i], 0, &rect);
+
+
         }
 
         // render text
@@ -434,14 +469,27 @@ public:
 	}
 
 	SDL_Rect getButtonBounds(int i) {
-	    int windowWidth, windowHeight;
-	    SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-	    int buttonWidthPlusMargin = windowWidth / numCommands;
+		int windowWidth, windowHeight;
+		SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+
+		if (i == CLEANING) {
+			int buttonWidth, buttonHeight;
+			SDL_QueryTexture(texture[i], 0, 0, &buttonWidth, &buttonHeight);
+			buttonWidth /= 3;
+			buttonHeight /= 3;
+			int margin = 10;
+			SDL_Rect rect = { windowWidth - buttonWidth - margin, windowHeight - buttonHeight - margin, buttonWidth, buttonHeight };
+			return rect;
+		}
+
+		// Toolbar:
+
+		int buttonWidthPlusMargin = windowWidth / LAST_BUTTON_IN_TOOLBAR;
 		int buttonWidth, buttonHeight;
 		SDL_QueryTexture(texture[i], 0, 0, &buttonWidth, &buttonHeight);
 		int margin = buttonWidthPlusMargin - buttonWidth;
 		int x = i * buttonWidthPlusMargin;
-		SDL_Rect rect = {x + margin/2, 40, buttonWidth, buttonHeight };
+		SDL_Rect rect = { x + margin / 2, 40, buttonWidth, buttonHeight };
 		return rect;
 	}
 
@@ -487,6 +535,10 @@ public:
 			mpd_run_load(conn, name.c_str());
 			check_connection();
 		}
+	}
+	void setShuffleMode(bool shuffle) {
+		mpd_run_play_pos(conn, shuffle);
+		check_connection();
 	}
 	void playRandomSong() {
 		// play random song
