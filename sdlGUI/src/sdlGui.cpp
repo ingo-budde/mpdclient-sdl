@@ -284,7 +284,7 @@ public:
 		stream << ", ";
 		stream << std::setw(2) << std::setfill('0') << local->tm_mday;
 		stream << ".";
-		stream << std::setw(2) << std::setfill('0') << local->tm_mon;
+		stream << std::setw(2) << std::setfill('0') << (local->tm_mon+1);
 		stream << ".";
 		stream << std::setw(4) << std::setfill('0') << (local->tm_year + 1900);
 		return stream.str();
