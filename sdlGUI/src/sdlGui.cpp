@@ -179,6 +179,8 @@ private:
 	SDL_Renderer * renderer;
 	SDL_Texture* texture[numCommands];
 
+	bool shuffleDefault;
+
 	const char* HOSTNAME = "192.168.1.94";
 
 	std::string tracklist[5];
@@ -219,6 +221,7 @@ public:
 		conn = 0;
 		night = false;
 		playlist = -1;
+		shuffleDefault = false;
 
 		displayMode = CLOCK_MODE;
 
@@ -405,10 +408,10 @@ public:
 						savePlaylist(this->playlist);
 						break;
 					}
-					case PLAYLIST1: setPlaylist(1); setShuffleMode(false); break;
-					case PLAYLIST2: setPlaylist(2); setShuffleMode(true); break;
-					case PLAYLIST3: setPlaylist(3); setShuffleMode(true); break;
-					case PLAYLIST4: setPlaylist(4); setShuffleMode(true); break;
+					case PLAYLIST1: setPlaylist(1); updateShuffle(); break;
+					case PLAYLIST2: setPlaylist(2); updateShuffle(); break;
+					case PLAYLIST3: setPlaylist(3); updateShuffle(); break;
+					case PLAYLIST4: setPlaylist(4); updateShuffle(); break;
 					}
 
 					if (int state = check_connection()) {
@@ -421,9 +424,14 @@ public:
 		}
 	}
 
+	void updateShuffle() {
+		setShuffleMode(shuffleDefault && displayMode != PLAYLIST_MODE);
+	}
 	void setDisplayMode(DISPLAY_MODE mode) {
-
-		displayMode = mode;
+		if (mode != displayMode) {
+			displayMode = mode;
+			updateShuffle();
+		}
 	}
 
 	bool isCleaningIconVisible() {
@@ -675,6 +683,9 @@ public:
 	void setPlaylist(int playlist) {
 		if (this->playlist != playlist) {
 			this->playlist = playlist;
+
+			shuffleDefault = (playlist != 1);
+
 			loadPlaylist(this->playlist);
 			playRandomSong();
 		}
