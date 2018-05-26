@@ -185,6 +185,7 @@ private:
 	const char* HOSTNAME = "192.168.1.94";
 
 	std::string tracklist[5];
+	float trackProgress;
 
 	const char* imgFiles[numCommands] = {
 			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp", "playlist.bmp"};
@@ -203,6 +204,7 @@ private:
 	};
 
 	DISPLAY_MODE displayMode;
+
 
 	struct mpd_connection *conn;
 
@@ -312,6 +314,10 @@ public:
 
 	std::string getTrackName() {
 		return tracklist[2];
+	}
+
+	float getTrackProgress() {
+		return trackProgress;
 	}
 
 	std::string getTime() {
@@ -459,7 +465,8 @@ public:
 		}
 
 
-		// Get Tracklist
+		// Get Tracklist and track progress
+		trackProgress = 0;
 		check_connection();
 		{
 			mpd_status* status = mpd_run_status(conn);
@@ -478,6 +485,15 @@ public:
 					tracklist[currentPos] = name;
 				}
 
+				check_connection();
+				if (mpd_status_get_state(status) == MPD_STATE_PLAY ||
+					mpd_status_get_state(status) == MPD_STATE_PAUSE) {
+					float total = mpd_status_get_total_time(status);
+					float elapsed = mpd_status_get_elapsed_time(status);
+					if (elapsed > 0) {
+						trackProgress = elapsed / total;
+					}
+				}
 				mpd_status_free(status);
 			}
 		}
@@ -531,14 +547,39 @@ public:
 
         }
 
-        // render text
+        // Get window size
 		SDL_Point windowSize;
 		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
 
+        // Render progress bar
+        {
+			int h = 40;
+			int y = windowSize.y / 2 - 120;
+			int marginX = 30;
+			int w = windowSize.x - marginX;
+        	SDL_Rect rect = { marginX/2, y - h/2, w, h } ;
+        	if (night) {
+        		SDL_SetRenderDrawColor(renderer, 60, 60, 100, 255);
+        	} else {
+        		SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255);
+        	}
+			SDL_RenderFillRect(renderer, &rect);
+			rect.w = w * getTrackProgress();
+			if (night) {
+				SDL_SetRenderDrawColor(renderer, 128, 128, 255, 255);
+			} else {
+				SDL_SetRenderDrawColor(renderer, 200, 200, 255, 255);
+			}
+			SDL_RenderFillRect(renderer, &rect);
+        }
+
+        // render text
 		SDL_Color textColor = night ? backgroundDay : backgroundNight;
 		SDL_Color disabledTextColor = night ? (SDL_Color) {180, 180, 180, 255} : (SDL_Color) {200, 200, 200, 255} ;
 
 		if (displayMode == CLOCK_MODE) {
+
+
 			renderText(font30, renderer, getTrackName(), textColor, { windowSize.x / 2, windowSize.y / 2 - 120}, true);
 			renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2 + 40}, true);
 			renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 190}, true);
