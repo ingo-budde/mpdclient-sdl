@@ -5,6 +5,16 @@
 #include <mpd/playlist.h>
 #include <mpd/queue.h>
 #include <mpd/status.h>
+
+
+#include <mpd/client.h>
+#include <mpd/status.h>
+#include <mpd/entity.h>
+#include <mpd/search.h>
+#include <mpd/tag.h>
+#include <mpd/message.h>
+
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
 #include <chrono>
@@ -15,6 +25,9 @@
 #include <sstream>
 #include <string>
 #include <iostream>
+
+
+
 
 
 //	void test() {
@@ -166,6 +179,10 @@ private:
 	SDL_Renderer * renderer;
 	SDL_Texture* texture[numCommands];
 
+	const char* HOSTNAME = "192.168.1.94";
+
+	std::string trackName;
+
 	const char* imgFiles[numCommands] = {
 			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp"};
 
@@ -174,7 +191,16 @@ private:
 	};
 	enum SEPARATE_BUTTONS {
 		CLEANING = LAST_BUTTON_IN_TOOLBAR,
+		BUTTON_PLAYLIST,
 	};
+
+	enum DISPLAY_MODE {
+		CLOCK_MODE,
+		PLAYLIST_MODE
+	};
+
+	DISPLAY_MODE mode;
+
 	struct mpd_connection *conn;
 
 	std::chrono::time_point<std::chrono::system_clock> lastCleanTime;
@@ -193,6 +219,8 @@ public:
 		conn = 0;
 		night = false;
 		playlist = -1;
+
+		mode = CLOCK_MODE;
 
 		// init SDL
 		SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -215,14 +243,11 @@ public:
 		font260 = TTF_OpenFont("Vera.ttf", 260);
 		font30 = TTF_OpenFont("Vera.ttf", 30);
 
-		conn = mpd_connection_new("bad", 0, 30000);
+		conn = mpd_connection_new(HOSTNAME, 0, 30000);
 
 		setPlaylist(4);
 
 		SDL_DisableScreenSaver();
-
-		//lastCleanTime = std::chrono::system_clock::now();
-
 	}
 
 	// shutdown
@@ -271,6 +296,10 @@ public:
 		return pt;
 	}
 
+	std::string getTrackName() {
+		return trackName;
+	}
+
 	std::string getTime() {
 		std::time_t result = std::time(nullptr);
 		std::tm* local = localtime(&result);
@@ -313,77 +342,85 @@ public:
 		}
 
 	    SDL_Event event;
-
 		bool quit = false;
 		 while (!quit) {
-			if (SDL_PollEvent(&event)) {
-		        switch (event.type)
-		        {
-		        	case SDL_QUIT:
-		            	quit = true;
-		            	break;
-		        	case SDL_MOUSEBUTTONDOWN:
-		        		pressedButton = -1;
-		                for (int i = 0; i < numCommands; i++) {
-		        			SDL_Rect rect = getButtonBounds(i);
-		        			SDL_Point point = { event.button.x, event.button.y };
-		        			if (SDL_PointInRect(&point, &rect)) {
-		        				pressedButton = i;
-		        			}
-		                }
-		                break;
-					case SDL_MOUSEBUTTONUP:
-						if (pressedButton > -1 && pressedButton < numCommands) {
-							if (int state = check_connection()) {
-								return state;
-							}
-
-							switch (pressedButton) {
-							case CLEANING: if (isCleaningIconVisible()) { lastCleanTime = std::chrono::system_clock::now(); } break;
-							case PREV: mpd_run_previous(conn); break;
-							case PLAY: mpd_run_play(conn); break;
-							case STOP: mpd_run_stop(conn); break;
-							case NEXT: mpd_run_next(conn); break;
-							case VOL_DOWN: mpd_run_change_volume(conn, -5); break;
-							case VOL_UP: mpd_run_change_volume(conn, 5); break;
-							case DEATH: {
-								mpd_status* status = mpd_run_status(conn);
-								int songid = mpd_status_get_song_pos(status);
-								mpd_run_delete(conn, songid);
-								mpd_status_free(status);
-								savePlaylist(this->playlist);
-								break;
-							}
-							case PLAYLIST1: setPlaylist(1); setShuffleMode(false); break;
-							case PLAYLIST2: setPlaylist(2); setShuffleMode(true); break;
-							case PLAYLIST3: setPlaylist(3); setShuffleMode(true); break;
-							case PLAYLIST4: setPlaylist(4); setShuffleMode(true); break;
-							}
-
-							if (int state = check_connection()) {
-								return state;
-							}
-						}
-						pressedButton = -1;
-		    			break;
-		        }
-		    } else {
-		    	SDL_Delay(100);
-		    }
-	        update();
-	        render();
+			update();
+			render();
+			if (SDL_WaitEventTimeout(&event, 100)) {
+				handleEvent(event, quit);
+				while (SDL_PollEvent(&event)) {
+					handleEvent(event, quit);
+				}
+			}
 		 }
 		 return 0;
 	}
 
+	void handleEvent(SDL_Event& event, bool& quit) {
+		switch (event.type)
+		{
+			case SDL_QUIT:
+				quit = true;
+				break;
+			case SDL_MOUSEBUTTONDOWN:
+				pressedButton = -1;
+				for (int i = 0; i < numCommands; i++) {
+					SDL_Rect rect = getButtonBounds(i);
+					SDL_Point point = { event.button.x, event.button.y };
+					if (SDL_PointInRect(&point, &rect)) {
+						pressedButton = i;
+					}
+				}
+				break;
+			case SDL_MOUSEBUTTONUP:
+				if (pressedButton > -1 && pressedButton < numCommands) {
+					if (int state = check_connection()) {
+						quit = true;
+						return;
+					}
+
+					switch (pressedButton) {
+					case CLEANING: if (isCleaningIconVisible()) { lastCleanTime = std::chrono::system_clock::now(); } break;
+					case PREV: mpd_run_previous(conn); break;
+					case PLAY: mpd_run_play(conn); break;
+					case STOP: mpd_run_stop(conn); break;
+					case NEXT: mpd_run_next(conn); break;
+					case VOL_DOWN: mpd_run_change_volume(conn, -5); break;
+					case VOL_UP: mpd_run_change_volume(conn, 5); break;
+					case DEATH: {
+						mpd_status* status = mpd_run_status(conn);
+						int songid = mpd_status_get_song_pos(status);
+						mpd_run_delete(conn, songid);
+						mpd_status_free(status);
+						savePlaylist(this->playlist);
+						break;
+					}
+					case PLAYLIST1: setPlaylist(1); setShuffleMode(false); break;
+					case PLAYLIST2: setPlaylist(2); setShuffleMode(true); break;
+					case PLAYLIST3: setPlaylist(3); setShuffleMode(true); break;
+					case PLAYLIST4: setPlaylist(4); setShuffleMode(true); break;
+					}
+
+					if (int state = check_connection()) {
+						quit = true;
+						return;
+					}
+				}
+				pressedButton = -1;
+				break;
+		}
+	}
+
 	bool isCleaningIconVisible() {
-		auto now = std::chrono::system_clock::now();
-		auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCleanTime);
-		float seconds = milliseconds.count() / 1000.0f;
-		float minutes = seconds / 60.0f;
-		float hours = minutes / 60.0f;
-		float days = hours / 24.0f;
-		return days > 30;
+		return false;
+//
+//		auto now = std::chrono::system_clock::now();
+//		auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - lastCleanTime);
+//		float seconds = milliseconds.count() / 1000.0f;
+//		float minutes = seconds / 60.0f;
+//		float hours = minutes / 60.0f;
+//		float days = hours / 24.0f;
+//		return days > 30;
 	}
 
 	void update() {
@@ -393,6 +430,27 @@ public:
 		struct tm *parts = std::localtime(&now_c);
 		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
 
+		mpd_status* status = mpd_run_status(conn);
+		int pos = mpd_status_get_song_pos(status);
+		mpd_song* song = mpd_run_get_queue_song_pos(conn, pos);
+		trackName = getSongInfo(song, MPD_TAG_ARTIST) + " - " + getSongInfo(song, MPD_TAG_TITLE);
+		mpd_song_free(song);
+		mpd_status_free(status);
+		savePlaylist(this->playlist);
+
+	}
+
+	std::string getSongInfo(mpd_song* song, enum mpd_tag_type type) {
+		unsigned int i = 0;
+		std::string str;
+		const char* line;
+		while ((line = mpd_song_get_tag(song, type, i++)) != NULL) {
+			if (!str.empty()) {
+				str = str + " ";
+			}
+			str += line;
+		}
+		return str;
 	}
 
 	void render() {
@@ -404,6 +462,7 @@ public:
     			c = { 255, 255, 225 };
     		}
     	}
+
 		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, 255);
 
         SDL_RenderClear(renderer);
@@ -432,8 +491,9 @@ public:
 		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
 
 		SDL_Color textColor = night ? backgroundDay : backgroundNight;
-		renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2}, true);
-		renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 150}, true);
+		renderText(font30, renderer, getTrackName(), textColor, { windowSize.x / 2, windowSize.y / 2 - 120}, true);
+		renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2 + 40}, true);
+		renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 190}, true);
 
         SDL_RenderPresent(renderer);
 	}
@@ -454,7 +514,7 @@ public:
 					mpd_connection_free(conn);
 				}
 				fprintf(stderr, "trying to reconnect...\n");
-				conn = mpd_connection_new("bad", 0, 30000);
+				conn = mpd_connection_new(HOSTNAME, 0, 30000);
 				if (conn == 0) {
 					return -1;
 				}
