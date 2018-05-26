@@ -186,6 +186,8 @@ private:
 
 	std::string tracklist[5];
 	float trackProgress;
+	float trackLength;
+	int currentSong;
 
 	const char* imgFiles[numCommands] = {
 			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp", "playlist.bmp"};
@@ -382,16 +384,33 @@ public:
 			case SDL_QUIT:
 				quit = true;
 				break;
-			case SDL_MOUSEBUTTONDOWN:
-				pressedButton = -1;
-				for (int i = 0; i < numCommands; i++) {
-					SDL_Rect rect = getButtonBounds(i);
-					SDL_Point point = { event.button.x, event.button.y };
+			case SDL_MOUSEBUTTONDOWN: {
+				SDL_Point point = { event.button.x, event.button.y };
+
+				// check for button press
+				{
+					pressedButton = -1;
+					for (int i = 0; i < numCommands; i++) {
+						SDL_Rect rect = getButtonBounds(i);
+						if (SDL_PointInRect(&point, &rect)) {
+							pressedButton = i;
+						}
+					}
+				}
+
+				// Check if track progress bar was clicked...
+				{
+					SDL_Rect rect = getProgressBarRect();
 					if (SDL_PointInRect(&point, &rect)) {
-						pressedButton = i;
+						float newProgress = (point.x - rect.x) * 1.0f / rect.w;
+						float newSongTime = newProgress * trackLength;
+
+						check_connection();
+						mpd_run_seek_pos(conn, currentSong, newSongTime);
 					}
 				}
 				break;
+			}
 			case SDL_MOUSEBUTTONUP:
 				if (pressedButton > -1 && pressedButton < numCommands) {
 					if (int state = check_connection()) {
@@ -467,11 +486,14 @@ public:
 
 		// Get Tracklist and track progress
 		trackProgress = 0;
+		trackLength = 0;
+		currentSong = -1;
 		check_connection();
 		{
 			mpd_status* status = mpd_run_status(conn);
 			if (status != nullptr) {
 				int pos = mpd_status_get_song_pos(status);
+				this->currentSong = pos;
 				for (int currentPos = 0; currentPos < 5; currentPos++) {
 					check_connection();
 
@@ -493,6 +515,7 @@ public:
 					if (elapsed > 0) {
 						trackProgress = elapsed / total;
 					}
+					trackLength = total;
 				}
 				mpd_status_free(status);
 			}
@@ -512,6 +535,18 @@ public:
 			str += line;
 		}
 		return str;
+	}
+
+	SDL_Rect getProgressBarRect() {
+		SDL_Point windowSize;
+		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
+
+		int h = 40;
+		int y = windowSize.y / 2 - 120;
+		int marginX = 30;
+		int w = windowSize.x - marginX;
+		SDL_Rect rect = { marginX/2, y - h/2, w, h } ;
+		return rect;
 	}
 
 	void render() {
@@ -553,18 +588,14 @@ public:
 
         // Render progress bar
         {
-			int h = 40;
-			int y = windowSize.y / 2 - 120;
-			int marginX = 30;
-			int w = windowSize.x - marginX;
-        	SDL_Rect rect = { marginX/2, y - h/2, w, h } ;
+        	SDL_Rect rect = getProgressBarRect();
         	if (night) {
         		SDL_SetRenderDrawColor(renderer, 60, 60, 100, 255);
         	} else {
         		SDL_SetRenderDrawColor(renderer, 240, 240, 240, 255);
         	}
 			SDL_RenderFillRect(renderer, &rect);
-			rect.w = w * getTrackProgress();
+			rect.w = rect.w * getTrackProgress();
 			if (night) {
 				SDL_SetRenderDrawColor(renderer, 128, 128, 255, 255);
 			} else {
