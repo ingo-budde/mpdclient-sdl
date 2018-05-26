@@ -172,6 +172,7 @@ class Application {
 private:
 	bool night;
 	int playlist;
+	int dayPlaylist;
 
 	SDL_Event userEvent;
 	int pressedButton = -1;
@@ -221,6 +222,7 @@ public:
 		conn = 0;
 		night = false;
 		playlist = -1;
+		dayPlaylist = -1;
 		shuffleDefault = false;
 
 		displayMode = CLOCK_MODE;
@@ -453,7 +455,7 @@ public:
 			auto now = Clock::now();
 			std::time_t now_c = Clock::to_time_t(now);
 			struct tm *parts = std::localtime(&now_c);
-			setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+			setNight(parts->tm_hour > 23 || parts->tm_hour < 7);
 		}
 
 
@@ -625,15 +627,14 @@ public:
 	}
 
 	void nightStatusChanged() {
-//		if (this->night) {
-//			setPlaylist(4);
-//		} else {
-//			if (playlist == 4) {
-//				setPlaylist(previousPlaylist);
-//			} else if (playlist == -1) {
-//				setPlaylist(1);
-//			}
-//		}
+		if (this->night) {
+			dayPlaylist = this->playlist;
+			setPlaylist(4);
+		} else {
+			if (playlist == 4 && dayPlaylist > 0) {
+				setPlaylist(dayPlaylist);
+			}
+		}
 	}
 
 	void savePlaylist(int playlist) {
