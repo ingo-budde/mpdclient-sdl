@@ -456,6 +456,8 @@ public:
 			if (status != nullptr) {
 				int pos = mpd_status_get_song_pos(status);
 				for (int currentPos = 0; currentPos < 5; currentPos++) {
+					check_connection();
+
 					int playlistPos = pos - 2 + currentPos;
 					mpd_song* song = mpd_run_get_queue_song_pos(conn, playlistPos);
 					std::string name = "";
