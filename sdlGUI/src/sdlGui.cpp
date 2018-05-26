@@ -536,7 +536,7 @@ public:
 		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
 
 		SDL_Color textColor = night ? backgroundDay : backgroundNight;
-		SDL_Color disabledTextColor = night ? (SDL_Color) {50, 50, 50, 255} : (SDL_Color) {200, 200, 200, 255} ;
+		SDL_Color disabledTextColor = night ? (SDL_Color) {150, 150, 150, 255} : (SDL_Color) {200, 200, 200, 255} ;
 
 		if (displayMode == CLOCK_MODE) {
 			renderText(font30, renderer, getTrackName(), textColor, { windowSize.x / 2, windowSize.y / 2 - 120}, true);
