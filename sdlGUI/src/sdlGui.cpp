@@ -161,7 +161,7 @@
 //struct mpd_playlist *
 //mpd_recv_playlist(struct mpd_connection *connection);
 
-const int numCommands = 12;
+const int numCommands = 13;
 
 
 SDL_Color backgroundNight = { 0,0,50,255 };
@@ -181,10 +181,10 @@ private:
 
 	const char* HOSTNAME = "192.168.1.94";
 
-	std::string trackName;
+	std::string tracklist[5];
 
 	const char* imgFiles[numCommands] = {
-			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp"};
+			"playlist1.bmp", "playlist2.bmp", "playlist3.bmp", "playlist4.bmp", "prev.bmp", "play.bmp", "stop.bmp", "next.bmp", "vol_down.bmp", "vol_up.bmp", "death.bmp", "cleaning.bmp", "playlist.bmp"};
 
 	enum BUTTONS {
 		PLAYLIST1=0, PLAYLIST2, PLAYLIST3, PLAYLIST4, PREV, PLAY, STOP, NEXT, VOL_DOWN, VOL_UP, DEATH, LAST_BUTTON_IN_TOOLBAR
@@ -199,7 +199,7 @@ private:
 		PLAYLIST_MODE
 	};
 
-	DISPLAY_MODE mode;
+	DISPLAY_MODE displayMode;
 
 	struct mpd_connection *conn;
 
@@ -220,7 +220,7 @@ public:
 		night = false;
 		playlist = -1;
 
-		mode = CLOCK_MODE;
+		displayMode = CLOCK_MODE;
 
 		// init SDL
 		SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
@@ -268,8 +268,17 @@ public:
 	}
 
 	void renderText(TTF_Font* font, SDL_Renderer* renderer, std::string text, SDL_Color color, SDL_Point position, bool center) {
+		if (text.empty()) {
+			return;
+		}
 		SDL_Surface* textSurface = TTF_RenderText_Solid(font, text.c_str(), color);
+		if (textSurface == nullptr) {
+			return;
+		}
 		SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+		if (texture == nullptr) {
+			return;
+		}
 		int textWidth = textSurface->w;
 		int textHeight = textSurface->h;
 		SDL_FreeSurface(textSurface);
@@ -297,7 +306,7 @@ public:
 	}
 
 	std::string getTrackName() {
-		return trackName;
+		return tracklist[2];
 	}
 
 	std::string getTime() {
@@ -380,6 +389,7 @@ public:
 					}
 
 					switch (pressedButton) {
+					case BUTTON_PLAYLIST: setDisplayMode(displayMode == CLOCK_MODE ? PLAYLIST_MODE : CLOCK_MODE);
 					case CLEANING: if (isCleaningIconVisible()) { lastCleanTime = std::chrono::system_clock::now(); } break;
 					case PREV: mpd_run_previous(conn); break;
 					case PLAY: mpd_run_play(conn); break;
@@ -411,6 +421,11 @@ public:
 		}
 	}
 
+	void setDisplayMode(DISPLAY_MODE mode) {
+
+		displayMode = mode;
+	}
+
 	bool isCleaningIconVisible() {
 		return false;
 //
@@ -424,19 +439,37 @@ public:
 	}
 
 	void update() {
-		typedef std::chrono::system_clock Clock;
-		auto now = Clock::now();
-		std::time_t now_c = Clock::to_time_t(now);
-		struct tm *parts = std::localtime(&now_c);
-		setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+		// set night mode
+		{
+			typedef std::chrono::system_clock Clock;
+			auto now = Clock::now();
+			std::time_t now_c = Clock::to_time_t(now);
+			struct tm *parts = std::localtime(&now_c);
+			setNight(parts->tm_hour > 20 || parts->tm_hour < 10);
+		}
 
-		mpd_status* status = mpd_run_status(conn);
-		int pos = mpd_status_get_song_pos(status);
-		mpd_song* song = mpd_run_get_queue_song_pos(conn, pos);
-		trackName = getSongInfo(song, MPD_TAG_ARTIST) + " - " + getSongInfo(song, MPD_TAG_TITLE);
-		mpd_song_free(song);
-		mpd_status_free(status);
-		savePlaylist(this->playlist);
+
+		// Get Tracklist
+		check_connection();
+		{
+			mpd_status* status = mpd_run_status(conn);
+			if (status != nullptr) {
+				int pos = mpd_status_get_song_pos(status);
+				for (int currentPos = 0; currentPos < 5; currentPos++) {
+					int playlistPos = pos - 2 + currentPos;
+					mpd_song* song = mpd_run_get_queue_song_pos(conn, playlistPos);
+					std::string name = "";
+					if (song != nullptr) {
+						name = getSongInfo(song, MPD_TAG_ARTIST) + " - " + getSongInfo(song, MPD_TAG_TITLE);
+						mpd_song_free(song);
+					}
+					tracklist[currentPos] = name;
+				}
+
+				mpd_status_free(status);
+			}
+		}
+
 
 	}
 
@@ -491,9 +524,22 @@ public:
 		SDL_GetWindowSize(window, &windowSize.x, &windowSize.y);
 
 		SDL_Color textColor = night ? backgroundDay : backgroundNight;
-		renderText(font30, renderer, getTrackName(), textColor, { windowSize.x / 2, windowSize.y / 2 - 120}, true);
-		renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2 + 40}, true);
-		renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 190}, true);
+		SDL_Color disabledTextColor = night ? (SDL_Color) {50, 50, 50, 255} : (SDL_Color) {200, 200, 200, 255} ;
+
+		if (displayMode == CLOCK_MODE) {
+			renderText(font30, renderer, getTrackName(), textColor, { windowSize.x / 2, windowSize.y / 2 - 120}, true);
+			renderText(font260, renderer, getTime(), textColor, { windowSize.x / 2, windowSize.y / 2 + 40}, true);
+			renderText(font30, renderer, getDate(), textColor, { windowSize.x / 2, windowSize.y / 2 + 190}, true);
+		} else if (displayMode == PLAYLIST_MODE) {
+
+			int y = 0;
+			for (int currentPos = 0; currentPos < 5; currentPos++) {
+				SDL_Color lineColor = currentPos == 2 ? textColor : disabledTextColor;
+				renderText(font30, renderer, tracklist[currentPos], lineColor, { windowSize.x / 2, windowSize.y / 2 - 50 + y}, true);
+				y += 40;
+			}
+
+		}
 
         SDL_RenderPresent(renderer);
 	}
@@ -537,6 +583,14 @@ public:
 			SDL_QueryTexture(texture[i], 0, 0, &buttonWidth, &buttonHeight);
 			buttonWidth /= 3;
 			buttonHeight /= 3;
+			int margin = 10;
+			SDL_Rect rect = { windowWidth - buttonWidth - margin, windowHeight - buttonHeight - margin, buttonWidth, buttonHeight };
+			return rect;
+		}
+
+		if (i == BUTTON_PLAYLIST) {
+			int buttonWidth, buttonHeight;
+			SDL_QueryTexture(texture[i], 0, 0, &buttonWidth, &buttonHeight);
 			int margin = 10;
 			SDL_Rect rect = { windowWidth - buttonWidth - margin, windowHeight - buttonHeight - margin, buttonWidth, buttonHeight };
 			return rect;
