@@ -408,10 +408,10 @@ public:
 						savePlaylist(this->playlist);
 						break;
 					}
-					case PLAYLIST1: setPlaylist(1); updateShuffle(); break;
-					case PLAYLIST2: setPlaylist(2); updateShuffle(); break;
-					case PLAYLIST3: setPlaylist(3); updateShuffle(); break;
-					case PLAYLIST4: setPlaylist(4); updateShuffle(); break;
+					case PLAYLIST1: setPlaylist(1); break;
+					case PLAYLIST2: setPlaylist(2); break;
+					case PLAYLIST3: setPlaylist(3); break;
+					case PLAYLIST4: setPlaylist(4); break;
 					}
 
 					if (int state = check_connection()) {
@@ -685,6 +685,7 @@ public:
 			this->playlist = playlist;
 
 			shuffleDefault = (playlist != 1);
+			updateShuffle();
 
 			loadPlaylist(this->playlist);
 			playRandomSong();
