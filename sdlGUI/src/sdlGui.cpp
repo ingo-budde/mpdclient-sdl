@@ -184,7 +184,7 @@ private:
 
 	bool shuffleDefault;
 
-	std::string hostname;
+	std::string hostname = "127.0.0.1";
 
 	std::string tracklist[5];
 	float trackProgress;
@@ -253,7 +253,11 @@ public:
 		renderer = SDL_CreateRenderer(window, -1, 0);
 
 		for (int i = 0; i < numCommands; i++) {
-			SDL_Surface* surface = SDL_LoadBMP(imgFiles[i]);
+			std::string filename = imgFiles[i];
+			SDL_Surface* surface = SDL_LoadBMP(filename.c_str());
+			if (!surface) {
+				throw std::logic_error("could not load image file: " + filename);
+			}
 			SDL_SetColorKey(surface, SDL_TRUE, SDL_MapRGB(surface->format, 255, 0, 255));
 			texture[i] = SDL_CreateTextureFromSurface(renderer, surface);
 			SDL_SetTextureBlendMode(texture[i], SDL_BLENDMODE_BLEND);
