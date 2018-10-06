@@ -1,3 +1,5 @@
+#include <vector>
+
 #include <mpd/connection.h>
 #include <mpd/error.h>
 #include <mpd/mixer.h>
@@ -182,7 +184,7 @@ private:
 
 	bool shuffleDefault;
 
-	const char* HOSTNAME = "192.168.1.94";
+	std::string hostname;
 
 	std::string tracklist[5];
 	float trackProgress;
@@ -219,8 +221,20 @@ private:
 public:
 
 	// init
-	Application() {
-
+	Application(std::vector<std::string> args) {
+		{
+			bool hostnameSwitch = false;
+			for (std::string arg : args) {
+				if (arg == "-h") {
+					hostnameSwitch = true;
+				} else {
+					if (hostnameSwitch) {
+						hostname = arg;
+					}
+					hostnameSwitch = false;
+				}
+			}
+		}
 		userEvent.type = SDL_USEREVENT;
 		srand(time(0));
 		conn = 0;
@@ -252,7 +266,7 @@ public:
 		font260 = TTF_OpenFont("Vera.ttf", 260);
 		font30 = TTF_OpenFont("Vera.ttf", 30);
 
-		conn = mpd_connection_new(HOSTNAME, 0, 30000);
+		conn = mpd_connection_new(hostname.c_str(), 0, 30000);
 
 		setPlaylist(4);
 
@@ -644,7 +658,7 @@ public:
 					mpd_connection_free(conn);
 				}
 				fprintf(stderr, "trying to reconnect...\n");
-				conn = mpd_connection_new(HOSTNAME, 0, 30000);
+				conn = mpd_connection_new(hostname.c_str(), 0, 30000);
 				if (conn == 0) {
 					return -1;
 				}
@@ -769,6 +783,10 @@ public:
 
 int main(int argc, char ** argv)
 {
-	Application app;
+	std::vector<std::string> args;
+	for (int i = 1; i < argc; i++) {
+		args.push_back(argv[i]);
+	}
+	Application app(args);
 	return app.run();
 }
